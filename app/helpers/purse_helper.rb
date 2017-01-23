@@ -1,0 +1,2 @@
+module PurseHelper
+end

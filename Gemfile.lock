@@ -45,7 +45,7 @@ GEM
     debug_inspector (0.0.2)
     digest-sha3 (1.1.0)
     erubis (2.7.0)
-    etheruby (0.9.4)
+    etheruby (0.9.5)
       digest-sha3 (~> 1.1)
       multi_json (~> 1.12)
     execjs (2.7.0)
