@@ -15,61 +15,69 @@ contract Omnipurse {
     string title;
     uint8 status;
     uint numContributions;
+    uint totalContributed;
     mapping (uint => Contribution) contributions;
   }
 
-  uint numPurse;
+  uint public numPurse;
   mapping (uint => Purse) purses;
+  mapping (address => uint[]) pursesByCreator;
   mapping (address => string) nicknames;
 
-  function createPurse(string title) returns (uint purseId) {
-    purseId = numPurse++;
-    purses[purseId] = Purse(msg.sender, block.timestamp, title, 1, 0);
+  function searchPursesByAddress(address creator) constant returns (uint[] ids) {
+    ids = pursesByCreator[creator];
   }
 
-  function getPurseDetails(uint purseId) returns (
-    address cr,
-    uint256 ts,
-    string t,
-    uint8 s,
-    uint n,
-    uint cb
+  function getPurseDetails(uint purseId) constant returns (
+    address creator,
+    uint256 timestamp,
+    string title,
+    uint8 status,
+    uint numContributions,
+    uint totalContributed
   ) {
     Purse p = purses[purseId];
-    cr = p.creator;
-    ts = p.timestamp;
-    t = p.title;
-    s = p.status;
-    n = p.numContributions;
-    for (uint i=0; i<p.numContributions; i++) {
-      Contribution c = p.contributions[i];
-      cb += c.value;
-    }
+    creator = p.creator;
+    timestamp = p.timestamp;
+    title = p.title;
+    status = p.status;
+    numContributions = p.numContributions;
+    totalContributed = p.totalContributed;
   }
 
-  function getPurseContributions(uint purseId, uint contributionId) returns (
-    address s,
-    uint v,
-    bool r,
-    string n
+  function getPurseContributions(uint purseId, uint contributionId) constant returns (
+    address sender,
+    uint value,
+    bool refunded,
+    string nickname,
+    uint timestamp
   ) {
     Purse p = purses[purseId];
     Contribution c = p.contributions[contributionId];
-    s = c.sender;
-    v = c.value;
-    r = c.refunded;
-    n = nicknames[c.sender];
+    sender = c.sender;
+    value = c.value;
+    refunded = c.refunded;
+    nickname = nicknames[c.sender];
+    timestamp = c.timestamp;
+  }
+
+  function createPurse(string title) returns (uint purseId) {
+    purseId = numPurse++;
+    purses[purseId] = Purse(msg.sender, block.timestamp, title, 1, 0, 0);
+    pursesByCreator[msg.sender].push(purseId);
   }
 
   function contributeToPurse(uint purseId) payable {
     Purse p = purses[purseId];
     if (p.status != 1) { throw; }
-    p.contributions[p.numContributions++] = Contribution(msg.sender, msg.value, false, block.timestamp);
+    p.totalContributed += msg.value;
+    p.contributions[p.numContributions++] = Contribution(msg.sender, msg.value,
+                                                        false, block.timestamp);
   }
 
   function dissmisPurse(uint purseId) {
     Purse p = purses[purseId];
-    if (p.creator != msg.sender || (p.status != 1 && p.status != 4) ) { throw; }
+    if (p.creator != msg.sender || (p.status != 1 && p.status != 4)) { throw; }
     bool success = true;
     for (uint i=0; i<p.numContributions; i++) {
       Contribution c = p.contributions[i];
@@ -78,24 +86,13 @@ contract Omnipurse {
       }
       success = success && c.refunded;
     }
-    if (success) {
-      p.status = 3;
-    } else {
-      p.status = 4;
-    }
+    p.status = success ? 3 : 4;
   }
 
   function finishPurse(uint purseId) {
     Purse p = purses[purseId];
-    uint total = 0;
     if (p.creator != msg.sender || p.status != 1) { throw; }
-    for (uint i=0; i<p.numContributions; i++) {
-      Contribution c = p.contributions[i];
-      total += c.value;
-    }
-    if (p.creator.send(total)) {
-      p.status = 2;
-    }
+    if (p.creator.send(p.totalContributed)) { p.status = 2; }
   }
 
   function registerNickname(string nickname) {
