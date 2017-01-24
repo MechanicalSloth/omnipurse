@@ -1,20 +1,16 @@
 class OmnipurseContract < Etheruby::Contract
   # The contract can be found here in the blockchain
-  at_address(if Rails.env.production?
-    0x81a47e985b7a133728e97efc7f9ec3654b6e73f0
-  else
-    0x4a0ba852fb10ffa742c54d4976b35ebbeab026cf
-  end)
+  at_address ENV['OMNIPURSE_ADDRESS'] || 0x81a47e985b7a133728e97efc7f9ec3654b6e73f0
 
   # This method is used to retrieve the total number of purses
   method :numPurse do
-    returns total_purses: :uint256
+    returns :uint256
   end
 
   # This method is used to list all the purses made by an address
   method :searchPursesByAddress do
     parameters :address
-    returns result: array(:uint256)
+    returns array(:uint256)
   end
 
   # This method is used to get details of a purse
@@ -40,20 +36,24 @@ class OmnipurseContract < Etheruby::Contract
 
   # Get 10 last purses
   def self.last_purses
-    np = self.numPurse.total_purses
+    np = num_purse
     return [] unless np > 0
-    ((np-10 < 0 ? 0 : np-10)..np-1).map { |id| self.getPurseDetails(id) }
+    ((np-10 < 0 ? 0 : np-10)..np-1).map { |id| get_purse_details(id) }
   end
 
   # Wrapper to search all purses created by `address`
   def self.list_purses_by_address(address)
-    self.searchPursesByAddress(address).result.map { |id| self.getPurseDetails(id) }
+    search_purses_by_address(address).map { |id|
+      get_purse_details(id)
+    }
   end
 
   # Wrapper to get all the contributions
   def self.list_contributions_of_purse(purse_id)
-    num_contribs = self.getPurseDetails(purse_id).num_contributions
+    num_contribs = get_purse_details(purse_id).num_contributions
     return [] unless num_contribs > 0
-    (0..num_contribs-1).map { |id| self.getPurseContributions(purse_id, id) }
+    (0..num_contribs-1).map { |id|
+      get_purse_contributions(purse_id, id)
+    }
   end
 end
